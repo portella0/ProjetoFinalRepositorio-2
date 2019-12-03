@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 
 public class PlayerMovement : MonoBehaviour
 {
-    public bool drawDebugRaycasts = true;   //Should the environment checks be visualized
+    public bool drawDebugRaycasts = true;  
 
     [Header("Camera")]
     public CinemachineImpulseSource cameraShake;
@@ -30,24 +30,44 @@ public class PlayerMovement : MonoBehaviour
     public GameObject golemAttackCollider;
     public float colliderSkeletonX, colliderSkeletonY, skeletonOffsetX, skeletonOffsetY, colliderArcherX, colliderArcherY, archerOffsetX, archerOffsetY, colliderGolemX, colliderGolemY,  golemOffsetX, golemOffsetY;
     public bool canChange;
+    public GameObject skelUI, mageUI, golemUI;
+    public float changetimer;
+    public GameObject skelChangeEffectPos;
+    public GameObject mageChangeEffectPos;
+    public GameObject golemChangeEffectPos;
+    public GameObject skelEffect;
+    public GameObject mageEffect;
+    public GameObject golemEffect;
+
+    [Header("Audio")]
+    AudioSource audioSource;
+    public AudioClip skelChangeSound;
+    public AudioClip mageChangeSound;
+    public AudioClip golemChangeSound;
+    public AudioClip golemJumpSound;
+    public AudioClip skelJump, skelLand;
 
     [Header("Movement Properties")]
-    public float speed = 5f;                //Player speed
-    public float crouchSpeedDivisor = 3f;   //Speed reduction when crouching
-    public float coyoteDuration =0.05f;     //How long the player can jump after falling
-    public float maxFallSpeed = -50f;       //Max speed player can fall
-    public float slideSpeed = 10f;           //Slide speed
-    public float slideTime = 0.5f;           //Slide timer
-    public float slideTimeMax = 0.5f;        //Slide maximum time
+    public float speed = 5f;                //player speed
+    public float crouchSpeedDivisor = 3f;   //ppeed reduction when crouching
+    public float coyoteDuration =0.05f;     //how long the player can jump after falling
+    public float maxFallSpeed = -50f;       //max speed player can fall
+    public float slideSpeed = 10f;           //slide speed
+    public float slideTime = 0.5f;           //slide timer
+    public float slideTimeMax = 0.5f;        //slide maximum time
     public float slideCooldown = 3f;        //cooldown for the slide 
-    public float mistTimer;
+    public float mistTimer;                 //invisiblity cooldown
     public float mistMaxTimer;
     public float golemAttackTimer;
     public float golemMaxAttackTimer;
+    public float golemJumpCooldown;
+    public float golemMaxJumpCooldown;
+    public float magicTimer;
+    public float magicMaxTimer;
+    public bool didMagic;
 
     [Header("Jump Properties")]
     public float jumpForce = 90f;          //Initial force of jump
-    public float crouchJumpBoost = 20f;    //Jump boost when crouching
     public float hangingJumpForce = 100f;    //Force of wall hanging jumo
     public float jumpHoldForce = 0.5f;      //Incremental force when jump is held
     public float jumpHoldDuration = 0.1f;    //How long the jump key can be held
@@ -77,14 +97,15 @@ public class PlayerMovement : MonoBehaviour
     public bool isNearWall;
     public bool isGolemAttack;
     public bool isMoving;
+    public bool slideSpace;
     //public bool isLookingUp;
     //public bool isLookingDown;
 
-    PlayerInput input;                      //The current inputs for the player
-    BoxCollider2D bodyCollider;             //The collider component
-    Rigidbody2D rigidBody;                  //The rigidbody component
-    public PlayerAnimations animate;               //The animation script
-    public PlayerHealth playerHealth;               //The animation script
+    public PlayerInput input;                      
+    BoxCollider2D bodyCollider;             
+    Rigidbody2D rigidBody;                  
+    public PlayerAnimations animate;               
+    public PlayerHealth playerHealth;               
 
     float jumpTime;                         //Variable to hold jump duration
     float coyoteTime;                       //Variable to hold coyote duration
@@ -101,7 +122,7 @@ public class PlayerMovement : MonoBehaviour
     public Vector2 colliderSlideSize;             //Size of the sliding collider
     public Vector2 colliderSlideOffset;           //Offset of the sliding collider
 
-    const float smallAmount = .05f;         //A small amount used for hanging position
+    const float hangOffset = .05f;         
 
     public Vector3 vel;
 
@@ -110,11 +131,18 @@ public class PlayerMovement : MonoBehaviour
         //not looking up or down
         //lookingHeight = false;
 
+        audioSource = GetComponent<AudioSource>();
+
         //set screen shake to false
         GolemShake = false;
         ShakeTimer = 1;
         golemJumpTimer = 0.05f;
         golemAttackCollider.SetActive(false);
+        golemJumpCooldown = 0;
+        changetimer = 0;
+
+        //reset magic timer
+        magicTimer = 0;
 
         //get impulse script
         cameraShake = GetComponent<CinemachineImpulseSource>();
@@ -143,10 +171,11 @@ public class PlayerMovement : MonoBehaviour
         isBlockingSkeleton = false;
         isMist = false;
         isNearWall = false;
+        slideSpace = true;
 
         //slide cooldown
         slideTimeMax = slideTime;
-
+        didMagic = false;
         //Calculate crouching collider size and offset
         //colliderCrouchSize = new Vector2(bodyCollider.size.x, bodyCollider.size.y / 2.05f);
         //colliderCrouchOffset = new Vector2(bodyCollider.offset.x, bodyCollider.offset.y / 2.05f);
@@ -159,15 +188,15 @@ public class PlayerMovement : MonoBehaviour
 
         //These are the starting sizes for the Collider component
         //skeleton
-        colliderSkeletonX = 0.6684278f;
-        colliderSkeletonY = 1.944759f;
-        skeletonOffsetX = 0.05300087f;
-        skeletonOffsetY = 0.9430555f;
+        colliderSkeletonX = 0.668f;
+        colliderSkeletonY = 1.944f;
+        skeletonOffsetX = 0.053f;
+        skeletonOffsetY = 0.943f;
         //archer
-        colliderArcherX = 0.8f;
-        colliderArcherY = 1.9f;
-        archerOffsetX = 0.05f;
-        archerOffsetY = 0.9f;
+        colliderArcherX = 0.65f;
+        colliderArcherY = 1.6f;
+        archerOffsetX = 0.06f;
+        archerOffsetY = 0.7f;
         //golem
         //colliderGolemX = 1.56f;
         colliderGolemX = 1.9f;
@@ -177,8 +206,10 @@ public class PlayerMovement : MonoBehaviour
         golemOffsetY = 1.26f;
 
         //Give the PlayerPrefs some values to send over to the next Scene
-        character = PlayerPrefs.GetInt("Character", 1);
-
+        if (canChange)
+        {
+            character = PlayerPrefs.GetInt("Character", 1);
+        }
         //character use
         if (character == 1)
         {
@@ -196,6 +227,8 @@ public class PlayerMovement : MonoBehaviour
 
     void FixedUpdate()
     {
+        changetimer += 1 * Time.deltaTime;    
+
         //get speed
         vel = rigidBody.velocity;
 
@@ -207,17 +240,27 @@ public class PlayerMovement : MonoBehaviour
         {
             SkeletonGroundMovement();
             SkeletonMidAirMovement();
+            skelUI.SetActive(true);
+            mageUI.SetActive(false);
+            golemUI.SetActive(false);
         }
         else if (character == 2)
         {
             ArcherGroundMovement();
             ArcherMidAirMovement();
+            skelUI.SetActive(false);
+            mageUI.SetActive(true);
+            golemUI.SetActive(false);
         }
         else if (character == 3)
         {
             GolemGroundMovement();
             GolemMidAirMovement();
+            skelUI.SetActive(false);
+            mageUI.SetActive(false);
+            golemUI.SetActive(true);
         }
+
 
         if (input.horizontal != 0)
         {
@@ -229,7 +272,7 @@ public class PlayerMovement : MonoBehaviour
         }
 
         //move camera
-        if (Input.GetKey(KeyCode.UpArrow))
+        if (Input.GetKey(KeyCode.UpArrow) || input.vertical > 0)
         {
             //if (!isHanging || !isCrouching || !isSliding)
             //{
@@ -238,7 +281,7 @@ public class PlayerMovement : MonoBehaviour
             //}
             follow.transform.position = Vector2.Lerp(follow.transform.position, upCamera.transform.position, 5 * Time.deltaTime);
         }
-        else if (Input.GetKey(KeyCode.DownArrow))
+        else if (Input.GetKey(KeyCode.DownArrow) || input.vertical < 0)
         {
             //if (!isHanging || !isCrouching || !isSliding)
             //{
@@ -255,25 +298,76 @@ public class PlayerMovement : MonoBehaviour
             follow.transform.position = Vector2.Lerp(follow.transform.position, centerCamera.transform.position, 5 * Time.deltaTime);
         }
 
-        if (playerHealth.isAlive)
+        if (playerHealth.shouldMove)
         {
             if (canChange)
             {
-                //change character
-                if (Input.GetKeyDown(KeyCode.Alpha1) && !isHanging && !isCrouching && character != 1)
+                ////change character
+                //if (Input.GetKeyDown(KeyCode.Alpha1) && !isHanging && !isCrouching && character != 1)
+                //{
+                //    animate.ResetAnimation();
+                //    SkeletonActive();
+                //}
+                //if (Input.GetKeyDown(KeyCode.Alpha2) && !isHanging && !isCrouching && character != 2)
+                //{
+                //    animate.ResetAnimation();
+                //    ArcherActive();
+                //}
+                //if (Input.GetKeyDown(KeyCode.Alpha3) && !isHanging && !isHeadBlocked && character != 3)
+                //{
+                //    animate.ResetAnimation();
+                //    GolemActive();
+                //}
+
+                if (input.changeLeft)
                 {
-                    animate.ResetAnimation();
-                    SkeletonActive();
+                    if (changetimer > 0.1f)
+                    {
+                        changetimer = 0;
+                        if (character == 1)
+                        {
+                            animate.ResetAnimation();
+                            GolemActive();
+                            Debug.Log("leftgolem");
+                        }
+                        else if (character == 2)
+                        {
+                            animate.ResetAnimation();
+                            SkeletonActive();
+                            Debug.Log("leftskel");
+                        }
+                        else if (character == 3)
+                        {
+                            animate.ResetAnimation();
+                            ArcherActive();
+                            Debug.Log("leftArcher");
+                        }
+                    }
                 }
-                if (Input.GetKeyDown(KeyCode.Alpha2) && !isHanging && !isCrouching && character != 2)
+                if (input.changeRight)
                 {
-                    animate.ResetAnimation();
-                    ArcherActive();
-                }
-                if (Input.GetKeyDown(KeyCode.Alpha3) && !isHanging && !isHeadBlocked && character != 3)
-                {
-                    animate.ResetAnimation();
-                    GolemActive();
+                    if (changetimer > 0.1f)
+                    {
+                        changetimer = 0;
+                        if (character == 1)
+                        {
+                            animate.ResetAnimation();
+                            ArcherActive();
+                            Debug.Log("RightArcher");
+                        }
+                        else if (character == 2)
+                        {
+                            animate.ResetAnimation();
+                            GolemActive();
+                            Debug.Log("RightGolem");
+                        }
+                        else if (character == 3)
+                        {
+                            animate.ResetAnimation();
+                            SkeletonActive();
+                            Debug.Log("RIghtSkel");
+                        }
+                    }
                 }
             }
         }
@@ -281,27 +375,39 @@ public class PlayerMovement : MonoBehaviour
 
     void PhysicsCheck()
     {
-        //Start by assuming the player isn't on the ground and the head isn't blocked
         isOnGround = false;
         isHeadBlocked = false;
 
-        if(!playerHealth.isAlive)
+        if (!playerHealth.shouldMove)
+        {
+            input.horizontal = 0;
+        }
+
+        if (!playerHealth.shouldMove && playerHealth.onTrap && playerHealth.touchingGround)
         {
             rigidBody.bodyType = RigidbodyType2D.Static;
         }
-        else if (playerHealth.isAlive && !isHanging)
+        else if (playerHealth.shouldMove && !isHanging)
         {
             rigidBody.bodyType = RigidbodyType2D.Dynamic;
         }
 
-        //Cast rays for the left and right foot
         RaycastHit2D leftCheck = Raycast(new Vector2(-groundCheckOffset, 0f), Vector2.down, groundDistance);
         RaycastHit2D rightCheck = Raycast(new Vector2(groundCheckOffset, 0f), Vector2.down, groundDistance);
 
-        //If either ray hit the ground, the player is on the ground
         if (leftCheck || rightCheck)
         {
+            if (golemJumpCooldown > 0 && golemJumpCooldown < golemMaxJumpCooldown)
+            {
+                golemJumpCooldown += 1 * Time.deltaTime;
+            }
+            if(golemJumpCooldown >= golemMaxJumpCooldown)
+            {
+                golemJumpCooldown = 0;
+            }
+
             isOnGround = true;
+
             if (character == 3 && GolemShake == true)
             {
                 rigidBody.bodyType = RigidbodyType2D.Static;
@@ -310,53 +416,73 @@ public class PlayerMovement : MonoBehaviour
                 {
                     rigidBody.bodyType = RigidbodyType2D.Dynamic;
                     golemJumpTimer = 0.05f;
-
                     cameraShake.GenerateImpulse();
                     ShakeTimer = 1;
                     GolemShake = false;
+                    if (golemJumpSound != null)
+                    {
+                        audioSource.PlayOneShot(golemJumpSound, 0.5F);
+                    }
+                }
+
+            }
+
+            if (character == 1 && GolemShake == true)
+            {
+                golemJumpTimer -= Time.deltaTime;
+                if (golemJumpTimer < 0)
+                {
+                    GolemShake = false;
+                    if (golemJumpSound != null)
+                    {
+                        audioSource.PlayOneShot(skelLand, 0.5F);
+                    }
                 }
 
             }
         }
 
-        //Cast the ray to check above the player's head
         headCheck = Raycast(new Vector2(0f, bodyCollider.size.y), Vector2.up, headAboveSpace);
 
-        //If that ray hits, the player's head is blocked
         if (headCheck)
             isHeadBlocked = true;
 
-        //Determine the direction of the wall grab attempt
         Vector2 grabDir = new Vector2(direction, 0f);
 
-        //Cast three rays to look for a wall grab
         RaycastHit2D blockedCheck = Raycast(new Vector2(groundCheckOffset * direction, playerHeight), grabDir, grabDistance);
         RaycastHit2D ledgeCheck = Raycast(new Vector2(reachOffset * direction, playerHeight), Vector2.down, grabDistance);
         RaycastHit2D wallCheck = Raycast(new Vector2(groundCheckOffset * direction, visionHeight), grabDir, grabDistance);
+        RaycastHit2D slideCheck = Raycast(new Vector2(groundCheckOffset * direction, visionHeight/2), grabDir, grabDistance);
 
         if (ledgeCheck.collider != null)
         {
             Debug.Log(ledgeCheck.collider.name);
         }
 
-        //If the player is off the ground AND is not hanging AND is falling AND
-        //found a ledge AND found a wall AND the grab is NOT blocked...
+        if(slideCheck)
+        {
+            slideSpace = false;
+        }
+        else
+        {
+            slideSpace = true;
+        }
+
+        if(isHeadBlocked)
+        {
+            isHanging = false;
+        }
+
         if (!isOnGround && !isHanging && rigidBody.velocity.y < 0f &&
-        ledgeCheck && wallCheck && !blockedCheck)
+        ledgeCheck && wallCheck && !blockedCheck && !isHeadBlocked)
         {
             if (character == 1)
             {
-                //...we have a ledge grab. Record the current position...
                 Vector3 pos = transform.position;
-                //...move the distance to the wall (minus a small amount)...
-                pos.x += (wallCheck.distance - smallAmount) * direction;
-                //...move the player down to grab onto the ledge...
+                pos.x += (wallCheck.distance - hangOffset) * direction;
                 pos.y -= ledgeCheck.distance;
-                //...apply this position to the platform...
                 transform.position = pos;
-                //...set the rigidbody to static...
                 rigidBody.bodyType = RigidbodyType2D.Static;
-                //...finally, set isHanging to true
 
                 isHanging = true;
             }
@@ -366,6 +492,15 @@ public class PlayerMovement : MonoBehaviour
     public void SkeletonActive()
     {
         animate = skeleton.GetComponent<PlayerAnimations>();
+        if (skelEffect != null)
+        {
+            Instantiate(skelEffect, skelChangeEffectPos.transform.position, transform.rotation);
+        }
+
+        if (skelChangeSound != null)
+        {
+            audioSource.PlayOneShot(skelChangeSound, 0.4f);
+        }
 
         //save character
         PlayerPrefs.SetInt("Character", 1);
@@ -385,32 +520,41 @@ public class PlayerMovement : MonoBehaviour
         rigidBody.mass = 5;
 
         //change movement properties
-        speed = 5f;                //Player speed
-        crouchSpeedDivisor = 3f;   //Speed reduction when crouching
-        maxFallSpeed = -50f;       //Max speed player can fall
-        slideSpeed = 10f;           //Slide speed
-        slideTime = 0.5f;           //Slide time
-        slideTimeMax = 0.5f;           //Slide time
-        slideCooldown = 3f;        //cooldown for the slide 
+        speed = 4.5f;                
+        crouchSpeedDivisor = 3f;   
+        maxFallSpeed = -50f;       
+        slideSpeed = 10f;           
+        slideTime = 0.5f;           
+        slideTimeMax = 0.5f;           
+        slideCooldown = 3f;        
 
         //change jump properties
-        jumpForce = 90f;          //Initial force of jump
-        hangingJumpForce = 100f;    //Force of wall hanging jumo
-        jumpHoldForce = 0.5f;      //Incremental force when jump is held
-        jumpHoldDuration = 0.1f;    //How long the jump key can be held
+        jumpForce = 90f;          
+        hangingJumpForce = 100f;    
+        jumpHoldForce = 0.5f;      
+        jumpHoldDuration = 0.1f;    
 
         //change raycast
-        groundCheckOffset = 0.4f;          //X Offset of feet raycast
-        visionHeight = 1.65f;          //Height of wall checks
-        reachOffset = 1f;         //X offset for wall grabbing
-        headAboveSpace = 0.9f;       //Space needed above the player's head
-        groundDistance = 0.3f;      //Distance player is considered to be on the ground
-        grabDistance = 0.8f;        //The reach distance for wall grabs
+        groundCheckOffset = 0.4f;          
+        visionHeight = 1.65f;          
+        reachOffset = 1f;         
+        headAboveSpace = 0.9f;       
+        groundDistance = 0.3f;      
+        grabDistance = 1f;        
     }
 
     public void ArcherActive()
     {
         animate = archer.GetComponent<PlayerAnimations>();
+        if (mageEffect != null)
+        {
+            Instantiate(mageEffect, mageChangeEffectPos.transform.position, transform.rotation);
+        }
+
+        if (mageChangeSound != null)
+        {
+            audioSource.PlayOneShot(mageChangeSound, 0.1f);
+        }
 
         //save character
         PlayerPrefs.SetInt("Character", 2);
@@ -430,31 +574,42 @@ public class PlayerMovement : MonoBehaviour
         rigidBody.mass = 2;
 
         //change movement properties
-        speed = 7f;                //Player speed
-        crouchSpeedDivisor = 3f;   //Speed reduction when crouching
-        maxFallSpeed = -10f;       //Max speed player can fall
-        slideSpeed = 10f;           //Slide speed
-        slideTime = 1f;           //Slide time
-        slideTimeMax = 1f;           //Slide time
-        slideCooldown = 3f;        //cooldown for the slide 
+        speed = 5.5f;                
+        crouchSpeedDivisor = 3f;   
+        maxFallSpeed = -10f;       
+        slideSpeed = 10f;           
+        slideTime = 1f;           
+        slideTimeMax = 1f;          
+        slideCooldown = 3f;       
 
         //change jump properties
-        jumpForce = 35f;          //Initial force of jump
-        jumpHoldForce = 0.5f;      //Incremental force when jump is held
-        jumpHoldDuration = 0.1f;    //How long the jump key can be held
+        jumpForce = 35f;          
+        jumpHoldForce = 0.5f;      
+        jumpHoldDuration = 0.1f;    
 
         //change raycast
-        groundCheckOffset = 0.4f;          //X Offset of feet raycast
-        visionHeight = 1.36f;          //Height of wall checks
-        reachOffset = 0.8f;         //X offset for wall grabbing
-        headAboveSpace = 0.9f;       //Space needed above the player's head
-        groundDistance = 0.3f;      //Distance player is considered to be on the ground
-        grabDistance = 0.4f;        //The reach distance for wall grabs
+        groundCheckOffset = 0.4f;          
+        visionHeight = 1.36f;          
+        reachOffset = 0.8f;         
+        headAboveSpace = 0.9f;       
+        groundDistance = 0.3f;      
+        grabDistance = 0.4f;
     }
 
     public void GolemActive()
     {
+        golemJumpTimer = 0.05f;
+
         animate = golem.GetComponent<PlayerAnimations>();
+        if (golemEffect != null)
+        {
+            Instantiate(golemEffect, golemChangeEffectPos.transform.position, transform.rotation);
+        }
+
+        if (golemChangeSound != null)
+        {
+            audioSource.PlayOneShot(golemChangeSound, 0.1f);
+        }
 
         //save character
         PlayerPrefs.SetInt("Character", 3);
@@ -475,28 +630,27 @@ public class PlayerMovement : MonoBehaviour
         rigidBody.mass = 10;
 
         //change movement properties
-        speed = 1.5f;                //Player speed
-        crouchSpeedDivisor = 3f;   //Speed reduction when crouching
-        maxFallSpeed = -10f;       //Max speed player can fall
-        slideSpeed = 10f;           //Slide speed
-        slideTime = 1f;           //Slide time
-        slideTimeMax = 1f;           //Slide time
-        slideCooldown = 3f;        //cooldown for the slide 
+        speed = 2f;                
+        crouchSpeedDivisor = 3f;   
+        maxFallSpeed = -10f;       
+        slideSpeed = 10f;           
+        slideTime = 1f;           
+        slideTimeMax = 1f;          
+        slideCooldown = 3f;        
 
         //change jump properties
-        jumpForce = 130f;          //Initial force of jump
-        crouchJumpBoost = 20f;    //Jump boost when crouching
-        hangingJumpForce = 100f;    //Force of wall hanging jumo
-        jumpHoldForce = 0.5f;      //Incremental force when jump is held
-        jumpHoldDuration = 0.1f;    //How long the jump key can be held
+        jumpForce = 130f;         
+        hangingJumpForce = 100f;    
+        jumpHoldForce = 0.5f;      
+        jumpHoldDuration = 0.1f;    
 
         //change raycast
-        groundCheckOffset = 0.75f;          //X Offset of feet raycast
-        visionHeight = 2.3f;          //Height of wall checks
-        reachOffset = 1.7f;         //X offset for wall grabbing
-        headAboveSpace = 0.5f;       //Space needed above the player's head
-        groundDistance = 0.1f;      //Distance player is considered to be on the ground
-        grabDistance = 1.5f;        //The reach distance for wall grabs
+        groundCheckOffset = 0.75f;         
+        visionHeight = 2.3f;          
+        reachOffset = 1.7f;         
+        headAboveSpace = 0.5f;       
+        groundDistance = 0.1f;      
+        grabDistance = 1.5f;       
     }
 
     //updates the collider size
@@ -518,54 +672,53 @@ public class PlayerMovement : MonoBehaviour
 
     void SkeletonGroundMovement()
     {
-        //If currently hanging, the player can't move to exit
+        //If  hanging the player cant move to exit
         if (isHanging)
             return;
 
-        //Handle crouching input. If holding the crouch button but not crouching, crouch
+        //If holding the crouch button but not crouching, crouch
         if (input.crouchHeld && !isCrouching && isOnGround && !isSliding)
             Crouch();
-        //Otherwise, if not sliding and is crouching and pressing the slide button, not slide
-        else if (input.runHeld && input.crouchHeld && slideTime > 0)
+        //if not sliding and is crouching and pressing the slide button, not slide
+        else if (input.runHeld && input.crouchHeld && slideTime > 0 && slideSpace)
             Slide();
         else if (!input.runHeld && isSliding && input.crouchHeld)
             Crouch();
         else if (!input.runHeld && isSliding && input.crouchHeld && slideTime <= 0)
             Crouch();
-        //Otherwise, if  sliding and is pressing the crouch button and no more slide time, crouch
+        //if  sliding and is pressing the crouch button and no more slide time, crouch
         else if (input.runHeld && input.crouchHeld && slideTime <= 0)
             Crouch();
         else if (input.runHeld && isHeadBlocked && slideTime <= 0 && !isStandingUp)
             Crouch();
         else if (!input.runHeld && isHeadBlocked && slideTime <= 0 && !isStandingUp)
             Crouch();
-        //Otherwise, if not sliding and head is blocked and pressing the slide button, slide
-        else if (input.runHeld && isHeadBlocked && slideTime > 0)
+        //if not sliding and head is blocked and pressing the slide button, slide
+        else if (input.runHeld && isHeadBlocked && slideTime > 0 && slideSpace)
             Slide();
-        //Otherwise, if not holding crouch but currently crouching, stand up
+        //if not holding crouch but currently crouching, stand up
         else if (!input.crouchHeld && isCrouching)
             StandUp();
-        //Otherwise, if crouching and no longer on the ground, stand up
+        //if crouching and no longer on the ground, stand up
         else if (!isOnGround && isCrouching)
             StandUp();
-        //Otherwise, if not sliding and holding the slide button, slide
-        else if (input.runHeld && !isSliding && slideTime > 0 && isOnGround)
+        //if not sliding and holding the slide button, slide
+        else if (input.runHeld && !isSliding && slideTime > 0 /*&& isOnGround*/ && slideSpace)
             Slide();
-        //Otherwise, if not holding the sliding button but sliding, stand up
+        //if not holding the sliding button but sliding, stand up
         else if (!input.runHeld && isSliding)
             StandUp();
-        //Otherwise, if  holding the sliding button but no more time, stand up
+        //if  holding the sliding button but no more time, stand up
         else if (input.runHeld && slideTime <= 0)
             StandUp();
-        //Otherwise, if not on ground but sliding, stand up
-        else if (!isOnGround && isSliding)
-            StandUp();
-        //Otherwise, if not holding the crouch button and sliding nut no more time
+        //if not on ground but sliding, stand up
+        //else if (!isOnGround && isSliding)
+        //    StandUp();
+        //if not holding the crouch button and sliding nut no more time
         //and space to stand, crouch 
         else if (isHeadBlocked && isSliding && slideTime <= 0 && !isStandingUp)
             Crouch();
 
-        //Calculate the desired velocity based on inputs
         float xVelocity = speed * input.horizontal;
 
         //if (lookingHeight)
@@ -573,7 +726,6 @@ public class PlayerMovement : MonoBehaviour
         //    xVelocity = 0;
         //}
 
-        //If the sign of the velocity and direction don't match, flip the character
         if (xVelocity * direction < 0f)
             FlipCharacterDirection();
 
@@ -643,7 +795,7 @@ public class PlayerMovement : MonoBehaviour
         //shoot arrow
         //if (input.runPressed)
         //{
-        //    if(transform.localScale.x == 1)
+        //    if (transform.localScale.x == 1)
         //    {
         //        Instantiate(arrow, arrowShot.transform.position, Quaternion.Euler(new Vector3(0, 0, 0)));
         //    }
@@ -658,17 +810,50 @@ public class PlayerMovement : MonoBehaviour
         {
             isMist = true;
         }
+
         if (isMist == true && mistTimer < mistMaxTimer)
         {
             mistTimer += 1 * Time.deltaTime;
         }
         else if (mistTimer >= mistMaxTimer)
         {
-            isMist = false;
+            if (mistTimer >= mistMaxTimer + 1)
+            {
+                isMist = false;
+            }
             mistTimer += 1 * Time.deltaTime;
             if(mistTimer >= mistMaxTimer *3)
             {
                 mistTimer = 0;
+            }
+        }
+
+        if (input.runPressed && magicTimer < magicMaxTimer)
+        {
+            if (!didMagic)
+            {
+                if (transform.localScale.x == 1)
+                {
+                    Instantiate(arrow, arrowShot.transform.position, Quaternion.Euler(new Vector3(0, 0, 0)));
+                }
+                else if (transform.localScale.x == -1)
+                {
+                    Instantiate(arrow, arrowShot.transform.position, Quaternion.Euler(new Vector3(0, 180, 0)));
+                }
+            }
+            didMagic = true;
+        }
+        if (didMagic == true && magicTimer < magicMaxTimer)
+        {
+            magicTimer += 1 * Time.deltaTime;
+        }
+        else if (magicTimer >= magicMaxTimer)
+        {
+            didMagic = false;
+            magicTimer += 1 * Time.deltaTime;
+            if (magicTimer >= magicMaxTimer * 3)
+            {
+                magicTimer = 0;
             }
         }
 
@@ -710,7 +895,7 @@ public class PlayerMovement : MonoBehaviour
         }
 
         //golem attack
-        if ((input.runPressed || input.runHeld) && golemAttackTimer < golemMaxAttackTimer)
+        if ((input.runPressed || input.runHeld) && golemAttackTimer < golemMaxAttackTimer && isOnGround)
         {
             isGolemAttack = true;
         }
@@ -718,18 +903,19 @@ public class PlayerMovement : MonoBehaviour
         if (isGolemAttack == true && golemAttackTimer < golemMaxAttackTimer)
         {
             golemAttackTimer += 1 * Time.deltaTime;
-            rigidBody.bodyType = RigidbodyType2D.Static;
-            if(golemAttackTimer >= 0.3)
-            {
-                golemAttackCollider.SetActive(true);
-            }
+            //rigidBody.bodyType = RigidbodyType2D.Static;
+            rigidBody.velocity = Vector2.zero;
+            //if (golemAttackTimer >= 0.3)
+            //{
+            //    golemAttackCollider.SetActive(true);
+            //}
         }
 
         else if (golemAttackTimer >= golemMaxAttackTimer)
         {
             isGolemAttack = false;
             golemAttackCollider.SetActive(false);
-            rigidBody.bodyType = RigidbodyType2D.Dynamic;
+            //rigidBody.bodyType = RigidbodyType2D.Dynamic;
             golemAttackTimer += 1 * Time.deltaTime;
             if (golemAttackTimer >= golemMaxAttackTimer)
             {
@@ -740,70 +926,55 @@ public class PlayerMovement : MonoBehaviour
 
     void SkeletonMidAirMovement()
     {
-        //If the player is currently hanging...
+
+        if (!isOnGround)
+        {
+            GolemShake = true;
+        }
+
         if (isHanging)
         {
-            //If crouch is pressed...
             if (input.crouchPressed)
             {
-                //...let go...
                 isHanging = false;
-                //...set the rigidbody to dynamic and exit
                 rigidBody.bodyType = RigidbodyType2D.Dynamic;
                 return;
             }
 
-            //If jump is pressed...
             if (input.jumpPressed)
             {
-                //...let go...
                 isHanging = false;
-                //...set the rigidbody to dynamic and apply a jump force...
                 rigidBody.bodyType = RigidbodyType2D.Dynamic;
                 rigidBody.AddForce(new Vector2(0f, hangingJumpForce), ForceMode2D.Impulse);
-                //...and exit
                 return;
             }
         }
 
-        //If the jump key is pressed AND the player isn't already jumping AND EITHER
-        //the player is on the ground or within the coyote time window...
         if (input.jumpPressed && !isJumping && (isOnGround || coyoteTime > Time.time) && !isHeadBlocked)
         {
-            //...check to see if crouching AND not blocked. If so...
-            //if (isCrouching && !isHeadBlocked)
-            //{
-            //    //...stand up and apply a crouching jump boost
-            //    StandUp();
-            //    rigidBody.AddForce(new Vector2(0f, crouchJumpBoost), ForceMode2D.Impulse);
-            //}
-
-            //...The player is no longer on the groud and is jumping...
             isOnGround = false;
             isJumping = true;
 
-            //...record the time the player will stop being able to boost their jump...
             jumpTime = Time.time + jumpHoldDuration;
 
-            //...add the jump force to the rigidbody...
             rigidBody.AddForce(new Vector2(0f, jumpForce), ForceMode2D.Impulse);
 
-            //...and tell the Audio Manager to play the jump audio
+            if (character == 1)
+            {
+                audioSource.PlayOneShot(skelJump, 0.5f);
+            }
             //SoundControl.PlayJumpAudio();
         }
-        //Otherwise, if currently within the jump time window...
         else if (isJumping)
         {
-            //...and the jump button is held, apply an incremental force to the rigidbody...
             if (input.jumpHeld)
                 rigidBody.AddForce(new Vector2(0f, jumpHoldForce), ForceMode2D.Impulse);
 
-            //...and if jump time is past, set isJumping to false
             if (jumpTime <= Time.time)
                 isJumping = false;
         }
 
-        //If player is falling to fast, reduce the Y velocity to the max
+        //If player is falling to fast reduce the Y velocity to the max
         if (rigidBody.velocity.y < maxFallSpeed)
             rigidBody.velocity = new Vector2(rigidBody.velocity.x, maxFallSpeed);
     }
@@ -811,7 +982,7 @@ public class PlayerMovement : MonoBehaviour
     void ArcherMidAirMovement()
     {
         //if space is hold, glide
-        if (Input.GetKey(KeyCode.Space))
+        if (input.jumpHeld)
         {
             maxFallSpeed = -1;
         }
@@ -820,44 +991,28 @@ public class PlayerMovement : MonoBehaviour
             maxFallSpeed = -10;
         } 
 
-        //If the jump key is pressed AND the player isn't already jumping AND EITHER
-        //the player is on the ground or within the coyote time window...
+
         if (input.jumpPressed && !isJumping && (isOnGround || coyoteTime > Time.time)&& !isHeadBlocked)
         {
-            //...check to see if crouching AND not blocked. If so...
-            //if (isCrouching && !isHeadBlocked)
-            //{
-            //    //...stand up and apply a crouching jump boost
-            //    StandUp();
-            //    rigidBody.AddForce(new Vector2(0f, crouchJumpBoost), ForceMode2D.Impulse);
-            //}
-
-            //...The player is no longer on the groud and is jumping...
             isOnGround = false;
             isJumping = true;
 
-            //...record the time the player will stop being able to boost their jump...
             jumpTime = Time.time + jumpHoldDuration;
 
-            //...add the jump force to the rigidbody...
             rigidBody.AddForce(new Vector2(0f, jumpForce), ForceMode2D.Impulse);
 
-            //...and tell the Audio Manager to play the jump audio
             //SoundControl.PlayJumpAudio();
         }
-        //Otherwise, if currently within the jump time window...
         else if (isJumping)
         {
-            //...and the jump button is held, apply an incremental force to the rigidbody...
             if (input.jumpHeld)
                 rigidBody.AddForce(new Vector2(0f, jumpHoldForce), ForceMode2D.Impulse);
 
-            //...and if jump time is past, set isJumping to false
             if (jumpTime <= Time.time)
                 isJumping = false;
         }
 
-        //If player is falling to fast, reduce the Y velocity to the max
+        //If player is falling to fast reduce the Y velocity to the max
         if (rigidBody.velocity.y < maxFallSpeed)
             rigidBody.velocity = new Vector2(rigidBody.velocity.x, maxFallSpeed);
     }
@@ -872,39 +1027,22 @@ public class PlayerMovement : MonoBehaviour
             isGolemAttack = false;
         }
 
-        //If the jump key is pressed AND the player isn't already jumping AND EITHER
-        //the player is on the ground or within the coyote time window...
-        if (input.jumpPressed && !isJumping && (isOnGround || coyoteTime > Time.time) && !isHeadBlocked)
+        if (input.jumpPressed && !isJumping && (isOnGround || coyoteTime > Time.time) && !isHeadBlocked && golemJumpCooldown == 0)
         {
-            //...check to see if crouching AND not blocked. If so...
-            //if (isCrouching && !isHeadBlocked)
-            //{
-            //    //...stand up and apply a crouching jump boost
-            //    StandUp();
-            //    rigidBody.AddForce(new Vector2(0f, crouchJumpBoost), ForceMode2D.Impulse);
-            //}
-
-            //...The player is no longer on the groud and is jumping...
             isOnGround = false;
             isJumping = true;
-
-            //...record the time the player will stop being able to boost their jump...
+            golemJumpCooldown = 0.1f;
             jumpTime = Time.time + jumpHoldDuration;
 
-            //...add the jump force to the rigidbody...
             rigidBody.AddForce(new Vector2(0f, jumpForce), ForceMode2D.Impulse);
 
-            //...and tell the Audio Manager to play the jump audio
             //SoundControl.PlayJumpAudio();
         }
-        //Otherwise, if currently within the jump time window...
         else if (isJumping)
         {
-            //...and the jump button is held, apply an incremental force to the rigidbody...
             if (input.jumpHeld)
                 rigidBody.AddForce(new Vector2(0f, jumpHoldForce), ForceMode2D.Impulse);
 
-            //...and if jump time is past, set isJumping to false
             if (jumpTime <= Time.time)
                 isJumping = false;
         }
@@ -944,7 +1082,6 @@ public class PlayerMovement : MonoBehaviour
         infoText.transform.position = textPos;
 
         infoText.transform.localScale = scaleText;
-
     }
 
     void Crouch()
@@ -966,16 +1103,16 @@ public class PlayerMovement : MonoBehaviour
 
     void StandUp()
     {
-        //If the player's head is blocked, they can't stand so exit
+        //If the players head is blocked they cant stand  
         if (isHeadBlocked)
             return;
 
         isStandingUp = true;
 
-        //The player isn't crouching
+        //The player isnt crouching
         isCrouching = false;
 
-        //The player isn't sliding
+        //The player isnt sliding
         isSliding = false;
 
         //Apply the standing collider size and offset
@@ -1000,33 +1137,24 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    //These two Raycast methods wrap the Physics2D.Raycast() and provide some extra
-    //functionality
+
     RaycastHit2D Raycast(Vector2 offset, Vector2 rayDirection, float length)
     {
-        //Call the overloaded Raycast() method using the ground layermask and return 
-        //the results
         return Raycast(offset, rayDirection, length, groundLayer);
     }
 
     RaycastHit2D Raycast(Vector2 offset, Vector2 rayDirection, float length, LayerMask mask)
     {
-        //Record the player's position
         Vector2 pos = transform.position;
 
-        //Send out the desired raycasr and record the result
         RaycastHit2D hit = Physics2D.Raycast(pos + offset, rayDirection, length, mask);
 
-        //If we want to show debug raycasts in the scene...
         if (drawDebugRaycasts)
         {
-            //...determine the color based on if the raycast hit...
             Color color = hit ? Color.red : Color.green;
-            //...and draw the ray in the scene view
             Debug.DrawRay(pos + offset, rayDirection * length, color);
         }
 
-        //Return the results of the raycast
         return hit;
     }
 
@@ -1038,23 +1166,44 @@ public class PlayerMovement : MonoBehaviour
             ForcePlayerChange changer = interact.GetComponent<ForcePlayerChange>();
             if (changer.skeleton)
             {
-                SkeletonActive();
-                canChange = changer.changeEnable;
+                if (character != 1)
+                {
+                    animate.ResetAnimation();
+                    SkeletonActive();
+                    canChange = changer.changeEnable;
+                }
             }
             else if (changer.archer)
             {
-                ArcherActive();
-                canChange = changer.changeEnable;
+                if (character != 2)
+                {
+                    animate.ResetAnimation();
+                    ArcherActive();
+                    canChange = changer.changeEnable;
+                }
             }
             else if (changer.golem)
             {
-                GolemActive();
-                canChange = changer.changeEnable;
+                if (character != 3)
+                {
+                    animate.ResetAnimation();
+                    GolemActive();
+                    canChange = changer.changeEnable;
+                }
             }
         }
 
-            //is near item
-            if (interact.gameObject.tag == "Itens")
+        if (interact.gameObject.tag == "Changer")
+        {
+            stepControl stepper = interact.GetComponent<stepControl>();
+            animate.stepGround = stepper.grass;
+            animate.stepStone = stepper.stone;
+            animate.stepWood = stepper.wood;
+            animate.stepSnow = stepper.snow;
+        }
+
+        //is near item
+        if (interact.gameObject.tag == "Itens")
         {
             ItemTextTrigger itemText = interact.GetComponent<ItemTextTrigger>();
             itemText.showText = true;
@@ -1074,10 +1223,9 @@ public class PlayerMovement : MonoBehaviour
             enemy.playerOnArea = true;
             enemy.target = gameObject.transform;
         }
-        if (interact.gameObject.tag == "DemoExit")
+        if (interact.gameObject.tag == "ChangeScene")
         {
-            Application.Quit();
-            Debug.Log("Jogo Fechado");
+            SceneManager.LoadScene(interact.GetComponent<ChangeScene>().sceneNumber);
         }
     }
 
@@ -1085,7 +1233,7 @@ public class PlayerMovement : MonoBehaviour
     {
         if (interact.gameObject.tag == "Itens" || interact.gameObject.tag == "NPC")
         {
-            if (Input.GetKeyDown(KeyCode.E))
+            if (input.interactPressed)
             {
                 infoText.SetActive(false);
             }
@@ -1096,7 +1244,7 @@ public class PlayerMovement : MonoBehaviour
             LightController lightControl = interact.GetComponent<LightController>();
             if (lightControl.lightsOn)
             {
-                if (lightControl.light.GetComponent<Light>().intensity <= 1)
+                if (lightControl.light.GetComponent<Light>().intensity <= lightControl.intensity)
                 {
                     lightControl.light.GetComponent<Light>().intensity += 0.5f *  Time.deltaTime;
                 }
@@ -1104,7 +1252,7 @@ public class PlayerMovement : MonoBehaviour
             }
             else if (!lightControl.lightsOn)
             {
-                if (lightControl.light.GetComponent<Light>().intensity >= 0)
+                if (lightControl.light.GetComponent<Light>().intensity >= lightControl.minimum)
                 {
                     lightControl.light.GetComponent<Light>().intensity -= 0.5f * Time.deltaTime;
                 }

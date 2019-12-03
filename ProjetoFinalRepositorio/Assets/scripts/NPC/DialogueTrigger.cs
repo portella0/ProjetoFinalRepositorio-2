@@ -12,6 +12,10 @@ public class DialogueTrigger : MonoBehaviour
     public GameObject player;
     public GameObject dialogueManager;
 
+    [Header("animation")]
+    public Animator anim;
+    int animateID;
+
     void Start()
     {
         player = GameObject.Find("Character");
@@ -19,6 +23,9 @@ public class DialogueTrigger : MonoBehaviour
         showText = false;
         playerCollision = player.GetComponent<PlayerMovement>();
         dialogueText = dialogueManager.GetComponent<TypeWriterEffect>();
+
+        animateID = Animator.StringToHash("shouldAnimate");
+        anim = GetComponent<Animator>();
     }
 
     void Update()
@@ -27,10 +34,16 @@ public class DialogueTrigger : MonoBehaviour
         if (showText == true)
         {
             //start text
-            if (Input.GetKeyDown(KeyCode.E) && dialogueText.next == false && dialogueText.timeSinceOpened >= dialogueText.timeToWaitForKeyInput)
+            if (playerCollision.input.interactPressed && dialogueText.next == false && dialogueText.timeSinceOpened >= dialogueText.timeToWaitForKeyInput 
+            && dialogueText.startedDialogue == false)
             {
                 TriggerDialogue();
             }
+        }
+
+        if (anim != null)
+        {
+            anim.SetBool(animateID, dialogueText.shouldAnimate);
         }
     }
 

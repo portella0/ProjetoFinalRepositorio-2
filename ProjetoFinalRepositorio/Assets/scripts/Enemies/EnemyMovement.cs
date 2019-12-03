@@ -7,12 +7,22 @@ public class EnemyMovement : MonoBehaviour
     [Header("timer Properties")]
     public float flipTimer;// = 0f;
     public float waitToFlip;// = 0.5f;
+    public float SlowTimer;
+    public float maxSlowTimer;
+    public float punchTimer;
+    //public float stunTimer;
 
-    [Header("Movement Properties")]
+    [Header("Stats")]
     public float speed;// = 5f;                //Player speed
+    public float runSpeed;
+    public float walkSpeed;
+    public int damage;
+    public bool isStunned;
 
     [Header("Environment Check Properties")]
     public float groundCheckOffset;// = 0.4f;          //X Offset of feet raycast
+    public float groundControl;
+    public float visionControl;
     public float visionHeight;// = -0.5f;          //Height of wall checks
     public float headAboveSpace;// = 1f;       //Space needed above the player's head
     public float groundDistance;// = 0.8f;      //Distance player is considered to be on the ground
@@ -25,6 +35,7 @@ public class EnemyMovement : MonoBehaviour
     public float playerDistance;
     public float checkTimer;
     public bool cliff;
+    public bool playSlowSound;
 
     [Header("Status Flags")]
     public bool isOnGround;                 //Is the player on the ground?
@@ -39,11 +50,14 @@ public class EnemyMovement : MonoBehaviour
     public float enemyMaxAttackTimer;
     public bool nearPlayer;
     public bool isAttacking;
+    public bool isAttackingFoward;
+    public SpriteRenderer enemySpriteBody;
+    public bool slowed;
 
     [Header("Collisions")]
     BoxCollider2D bodyCollider;             //The collider component
     Rigidbody2D rigidBody;                  //The rigidbody component
-    public GameObject attackCollider;
+    //public GameObject attackCollider;
 
     float enemyHeight;                     //Height of the player
     float enemyLenght;
@@ -57,18 +71,38 @@ public class EnemyMovement : MonoBehaviour
     public Transform target;
     public PlayerMovement playerScript;
 
+    [Header("Audio")]
+    AudioSource audioSource;
+    public AudioClip step;
+    public AudioClip run;
+    public AudioClip stun;
+    public AudioClip fall;
+    public AudioClip attack;
+    public AudioClip sound;
+    public AudioClip slowSound;
+    public AudioClip reverseSlowSound;
+
     // Start is called before the first frame update
     void Start()
     {
+        audioSource = GetComponent<AudioSource>();
+
         isIdle = true;
 
         cliff = false;
 
-        attackCollider.SetActive(false);
+        playSlowSound = true;
+
+        //attackCollider.SetActive(false);
 
         target = GameObject.Find("Character").transform;
 
         playerScript = GameObject.Find("Character").GetComponent<PlayerMovement>();
+
+        slowed = false;
+        SlowTimer = 0;
+        punchTimer = 0;
+        isStunned = false;
 
         //not near player
         isAttacking = false;
@@ -102,7 +136,7 @@ public class EnemyMovement : MonoBehaviour
     {
         playerDistance = Vector2.Distance(target.position, transform.position);
 
-        if(playerDistance < visionDistance)
+        if(playerDistance < visionDistance && playerScript.isMist == false && playerScript.playerHealth.isAlive && !isStunned)
         {
             isSeeing = true;
         }
@@ -113,7 +147,7 @@ public class EnemyMovement : MonoBehaviour
 
         if(playerScript.character == 1)
         {
-            if (playerDistance < soundDistance/2)
+            if (playerDistance < soundDistance/2 && playerScript.playerHealth.isAlive && !isStunned)
             {
                 isHearing = true;
             }
@@ -124,7 +158,7 @@ public class EnemyMovement : MonoBehaviour
         }
         else if (playerScript.character == 2)
         {
-            if (playerDistance < soundDistance / 4)
+            if (playerDistance < soundDistance / 4 && playerScript.isMist == false && playerScript.playerHealth.isAlive && !isStunned)
             {
                 isHearing = true;
             }
@@ -135,7 +169,7 @@ public class EnemyMovement : MonoBehaviour
         }
         else if (playerScript.character == 3)
         {
-            if (playerDistance < soundDistance)
+            if (playerDistance < soundDistance && playerScript.playerHealth.isAlive && !isStunned)
             {
                 isHearing = true;
             }
@@ -163,6 +197,38 @@ public class EnemyMovement : MonoBehaviour
         PhysicsCheck();
         FlipEnemyDirection();
         EnemyAttackFunction();
+        statusFunctions();
+    }
+
+    void statusFunctions()
+    {
+        if (slowed)
+        {
+            SlowTimer += Time.deltaTime;
+            if (SlowTimer < maxSlowTimer)
+            {
+                enemySpriteBody.color = new Color(0.75f, 0, 1);
+            }
+            else if (SlowTimer > maxSlowTimer)
+            {
+                slowed = false;
+                audioSource.PlayOneShot(reverseSlowSound, 0.5f);
+                SlowTimer = 0;
+                enemySpriteBody.color = new Color(1, 1, 1);
+            }
+            if (SlowTimer > maxSlowTimer/6)
+            {
+                playSlowSound = true;
+            }
+        }
+        if (isStunned)
+        {
+            rigidBody.bodyType = RigidbodyType2D.Static;
+        }
+        else if (!isStunned)
+        {
+            rigidBody.bodyType = RigidbodyType2D.Dynamic;
+        }
     }
 
     void PhysicsCheck()
@@ -171,8 +237,8 @@ public class EnemyMovement : MonoBehaviour
         //RaycastHit2D leftCheck = Raycast(new Vector2(-groundCheckOffset, -0.5f), Vector2.down, groundDistance);
         //RaycastHit2D rightCheck = Raycast(new Vector2(groundCheckOffset, -0.5f), Vector2.down, groundDistance);
 
-        RaycastHit2D leftCheck = Raycast(new Vector2(-enemyLenght, -enemyHeight), Vector2.down, enemyHeight);
-        RaycastHit2D rightCheck = Raycast(new Vector2(enemyLenght, -enemyHeight), Vector2.down, enemyHeight);
+        RaycastHit2D leftCheck = Raycast(new Vector2(-enemyLenght, -enemyHeight), Vector2.down, enemyHeight + groundControl);
+        RaycastHit2D rightCheck = Raycast(new Vector2(enemyLenght, -enemyHeight), Vector2.down, enemyHeight + groundControl);
 
         //If either ray hit the ground, the player is on the ground
         if (leftCheck || rightCheck)
@@ -185,7 +251,7 @@ public class EnemyMovement : MonoBehaviour
             //direction = -direction;;
         }
 
-        if ((!leftCheck && rightCheck)|| (leftCheck && !rightCheck))
+        if (!leftCheck || !rightCheck)
         {
             if (cliff)
             {
@@ -211,9 +277,10 @@ public class EnemyMovement : MonoBehaviour
         RaycastHit2D headCheck = Raycast(new Vector2(0f, bodyCollider.size.y), Vector2.up, headAboveSpace);
 
         //Cast three rays to look for a wall grab
-        RaycastHit2D wallCheck = Raycast(new Vector2(groundCheckOffset * direction, visionHeight), grabDir, grabDistance);     
+        RaycastHit2D wallCheck = Raycast(new Vector2(groundCheckOffset * direction, visionHeight), grabDir, grabDistance);
+        RaycastHit2D wallCheck2 = Raycast(new Vector2(groundCheckOffset * direction, visionHeight-visionControl), grabDir, grabDistance);
 
-        if (wallCheck)
+        if (wallCheck || wallCheck2)
         {
             direction = -direction;
         }
@@ -231,39 +298,62 @@ public class EnemyMovement : MonoBehaviour
 
         targetDirection.y = 0;
 
-        if (playerOnArea == true)
-        { 
+        if (playerScript.character == 3)
+        {
+            if (targetDirection.x < 0f)
+            {
+                targetDirection.x = targetDirection.x - 1;
+            }
+            else if (targetDirection.x > 0f)
+            {
+                targetDirection.x = targetDirection.x + 1;
+            }
+        }
+
+
+        if (playerOnArea == true && !isStunned && playerScript.playerHealth.shouldMove == true)
+        {
             if (targetDirection.x < 0f)
             {
                 //if player is in front chase
                 if (direction == -1)
                 {
-                    if (isSeeing == true)
+                    if (isSeeing == true && !isAttacking)
                     {
-                        speed = 10;
-                        Debug.Log(transform.position);
+                        if (slowed)
+                            speed = walkSpeed;
+                        else
+                            speed = runSpeed;
                         rigidBody.MovePosition(transform.position + targetDirection * speed * Time.deltaTime);
                         OnChase = true;
                     }
                     else if (isSeeing == false)
                     {
-                        speed = 5;
+                        if (slowed)
+                            speed = walkSpeed / 2;
+                        else
+                            speed = walkSpeed;
                         rigidBody.velocity = new Vector2(1, 0) * speed * direction;
                     }
                 }
                 //if player is behind just walk
                 else if (direction == 1)
                 {
-                    if (isHearing == true)
+                    if (isHearing == true && !isAttacking)
                     {
-                        speed = 10;
-                        Debug.Log(transform.position);
+                        if (slowed)
+                            speed = walkSpeed;
+                        else
+                            speed = runSpeed;
                         rigidBody.MovePosition(transform.position + targetDirection * speed * Time.deltaTime);
                         OnChase = true;
                     }
                     else if (isHearing == false)
                     {
-                        speed = 5;
+                        if (slowed)
+                            speed = walkSpeed / 2;
+                        else
+                            speed = walkSpeed;
                         rigidBody.velocity = new Vector2(1, 0) * speed * direction;
                     }
                 }
@@ -273,44 +363,56 @@ public class EnemyMovement : MonoBehaviour
                 //if player is in front chase
                 if (direction == 1)
                 {
-                    if (isSeeing == true)
+                    if (isSeeing == true && !isAttacking)
                     {
-                        speed = 10;
-                        Debug.Log(transform.position);
+                        if (slowed)
+                            speed = walkSpeed;
+                        else
+                            speed = runSpeed;
                         rigidBody.MovePosition(transform.position + targetDirection * speed * Time.deltaTime);
                         OnChase = true;
                     }
                     else if (isSeeing == false)
                     {
-                        speed = 5;
+                        if (slowed)
+                            speed = walkSpeed / 2;
+                        else
+                            speed = walkSpeed;
                         rigidBody.velocity = new Vector2(1, 0) * speed * direction;
                     }
                 }
                 //if player is behind just walk
                 else if (direction == -1)
                 {
-                    if (isHearing == true && !nearPlayer)
+                    if (isHearing == true && !nearPlayer && !isAttacking)
                     {
-                        speed = 10;
-                        Debug.Log(transform.position);
+                        if (slowed)
+                            speed = walkSpeed;
+                        else
+                            speed = runSpeed;
                         rigidBody.MovePosition(transform.position + targetDirection * speed * Time.deltaTime);
                         OnChase = true;
                     }
                     else if (isHearing == false && !nearPlayer)
                     {
-                        speed = 5;
+                        if (slowed)
+                            speed = walkSpeed / 2;
+                        else
+                            speed = walkSpeed;
                         rigidBody.velocity = new Vector2(1, 0) * speed * direction;
                     }
                 }
-            }            
+            }
         }
-
         //if does not see player just walk
-        else if (playerOnArea == false)
+        else if (playerOnArea == false || playerScript.playerHealth.shouldMove == false)
         {
             if (isOnGround)
             {
-                speed = 5;
+                if (slowed)
+                    speed = walkSpeed / 2;
+                else
+                    speed = walkSpeed;
                 rigidBody.velocity = new Vector2(1, 0) * speed * direction;
                 OnChase = false;
             }
@@ -333,7 +435,7 @@ public class EnemyMovement : MonoBehaviour
             }
         }
 
-        if (direction == 1)
+        if (direction == 1 && !isStunned)
         {
             //Record the current scale
             Vector3 scale = transform.localScale;
@@ -344,7 +446,7 @@ public class EnemyMovement : MonoBehaviour
             //Apply the new scale
             transform.localScale = scale;
         }
-        else if (direction == -1)
+        else if (direction == -1 && !isStunned)
         {
             //Record the current scale
             Vector3 scale = transform.localScale;
@@ -359,25 +461,37 @@ public class EnemyMovement : MonoBehaviour
 
     public void EnemyAttackFunction()
     {
-        //golem attack
+        //int attackType = Random.Range(1, 1);
+
         if (enemyAttackTimer < enemyMaxAttackTimer && nearPlayer)
         {
-            isAttacking = true;
+            //if (attackType == 0)
+            //{
+                isAttacking = true;
+            //}
+            //else if (attackType == 1)
+            //{
+            //    isAttackingFoward = true;
+            //}
         }
 
-        if (isAttacking == true && enemyAttackTimer < enemyMaxAttackTimer)
+        if ((isAttacking == true || isAttackingFoward == true) && enemyAttackTimer < enemyMaxAttackTimer)
         {
             enemyAttackTimer += 1 * Time.deltaTime;
-            if (enemyAttackTimer >= 0.15)
-            {
-                attackCollider.SetActive(true);
-            }
+            //if (enemyAttackTimer >= 0.2)
+            //{
+            //    attackCollider.SetActive(true);
+            //}
         }
 
         else if (enemyAttackTimer >= enemyMaxAttackTimer)
         {
-            isAttacking = false;
-            attackCollider.SetActive(false);
+            if (!nearPlayer)
+            {
+                isAttacking = false;
+                //isAttackingFoward = false;
+            }
+            //attackCollider.SetActive(false);
             enemyAttackTimer += 1 * Time.deltaTime;
             if (enemyAttackTimer >= enemyMaxAttackTimer)
             {
@@ -422,6 +536,23 @@ public class EnemyMovement : MonoBehaviour
         {
             nearPlayer = true;
         }
+        if (collision.gameObject.tag == "arrow")
+        {
+            //collision.gameObject.GetComponent<CircleCollider2D>().enabled = false;
+            slowed = true;
+            if (playSlowSound == true)
+            {
+                audioSource.PlayOneShot(slowSound, 0.5f);
+                playSlowSound = false;
+            }
+        }
+        if (collision.tag == "golemArm")
+        {
+            if(!isStunned)
+            {
+                isStunned = true;
+            }
+        }
     }
 
     void OnTriggerStay2D(Collider2D collision)
@@ -454,5 +585,35 @@ public class EnemyMovement : MonoBehaviour
         {
             nearPlayer = false;
         }
+    }
+
+    public void stepAudio()
+    {
+        audioSource.PlayOneShot(step);
+    }
+
+    public void runAudio()
+    {
+        audioSource.PlayOneShot(run);
+    }
+
+    public void attackAudio()
+    {
+        audioSource.PlayOneShot(attack);
+    }
+
+    public void stunAudio()
+    {
+        audioSource.PlayOneShot(stun);
+    }
+
+    public void fallAudio()
+    {
+        audioSource.PlayOneShot(fall);
+    }
+
+    public void soundAuDio()
+    {
+        audioSource.PlayOneShot(sound);
     }
 }

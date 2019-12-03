@@ -5,5 +5,6 @@ using UnityEngine;
 public class LightController : MonoBehaviour
 {
     public GameObject light;
+    public float intensity, minimum;
     public bool lightsOn;
 }

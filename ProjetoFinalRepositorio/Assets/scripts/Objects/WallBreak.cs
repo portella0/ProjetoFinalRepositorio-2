@@ -10,9 +10,13 @@ public class WallBreak : MonoBehaviour
     public bool isBroken;
     int wallAnimationID;
 
+    public AudioClip breakWallSound;
+    AudioSource audioSource;
+
     // Start is called before the first frame update
     void Start()
     {
+        audioSource = GetComponent<AudioSource>();
         isBroken = false;
         wallAnimationID = Animator.StringToHash("breakWall");
         anim = GetComponent<Animator>();
@@ -37,6 +41,11 @@ public class WallBreak : MonoBehaviour
         }
     }
 
+    public void BreakAudio()
+    {
+        audioSource.PlayOneShot(breakWallSound, 0.5f);
+    }
+
     void DestroyObjectDelayed()
     {
         // Kills the game object in 5 seconds after loading the object
@@ -44,7 +53,7 @@ public class WallBreak : MonoBehaviour
 
         for (int i = 0; i < walls.Length; i++)
         {
-            Destroy(walls[i], 2);
+            Destroy(walls[i], 5);
             isBroken = false;
         }
     }

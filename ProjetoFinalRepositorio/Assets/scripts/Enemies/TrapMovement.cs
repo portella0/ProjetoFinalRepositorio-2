@@ -25,8 +25,8 @@ public class TrapMovement : MonoBehaviour
     public bool flipMode;   //should flip the sprite
 
     [Header("Collisions")]
-    BoxCollider2D bodyCollider;             //The collider component
-    Rigidbody2D rigidBody;                  //The rigidbody component
+    BoxCollider2D bodyCollider;             
+    Rigidbody2D rigidBody;                  
 
     float enemyHeight;                     //Height of the player
 
@@ -45,27 +45,20 @@ public class TrapMovement : MonoBehaviour
 
         OnChase = false;
 
-        //Start by assuming the player isn't on the ground and the head isn't blocked
-
-        //Get a reference to the required components
         rigidBody = GetComponent<Rigidbody2D>();
 
         bodyCollider = GetComponent<BoxCollider2D>();
-        //Record the player's height from the collider
         enemyHeight = bodyCollider.size.y;
 
 
-        //Record the original x scale of the player
         originalXScale = transform.localScale.x;
 
         //start not seeing player
         playerOnArea = false;
     }
 
-    // Update is called once per frame
     void Update()
     {
-        //get speed
         vel = rigidBody.velocity;
 
         flipTimer = flipTimer + Time.deltaTime;
@@ -81,9 +74,6 @@ public class TrapMovement : MonoBehaviour
     {
         //Calculate the desired velocity based on inputs
         float xVelocity = speed;
-
-        //Apply the desired velocity 
-        //rigidBody.velocity = new Vector2(xVelocity, rigidBody.velocity.y);
 
         targetDirection = (target.transform.position - transform.position).normalized;
 

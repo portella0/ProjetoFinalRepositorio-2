@@ -7,6 +7,7 @@ public class PlayerHealth : MonoBehaviour
     [Header("timer Properties")]
     public float shieldRegenTimer;// = 0f;
     public float waitRegenShield;// = 0.5f;
+    public float colorTimer;
 
     [Header("bars")]
     public SimpleHealthBar shieldBar;
@@ -15,6 +16,7 @@ public class PlayerHealth : MonoBehaviour
     public GameObject shieldSprite;
     //public GameObject[] healthSprite;
     public GameObject healthSprite;
+    public GameObject lifeParticleSkel, lifeParticleMage, lifeParticleGolem;
 
     [Header("bar properties")]
     //public float[] health;
@@ -27,17 +29,24 @@ public class PlayerHealth : MonoBehaviour
     [Header("death")]
     public GameObject[] characters;
     public GameObject deathEffect;
-    Vector3 particlePos;
+    public GameObject particlePos;
     public float particleHeight;
+    public bool calledDeath;
+    public bool calledControl;
+    public bool onTrap;
+    public float soundControl;
+    public float soundControlMax;
+    public bool checkThePoint;
 
     [Header("player status")]
     public PlayerMovement characterType;
-    public bool isAlive = true;   
+    public bool isAlive = true;
+    public bool shouldMove = true;
+    public bool touchingGround;
 
     [Header("sprites")]
     public SpriteRenderer skeletonSprite;
     public SpriteRenderer archerHeadSprite;
-    public SpriteRenderer archerBodySprite;
     public SpriteRenderer golemSprite;
     public bool damage;
 
@@ -45,14 +54,42 @@ public class PlayerHealth : MonoBehaviour
     public GameObject checkpoint;
 
     int trapsLayer;
+    int groundLayer;
+
+    [Header("Audio")]
+    AudioSource audioSource;
+    public AudioClip skelDamage;
+    public AudioClip mageDamage;
+    public AudioClip skelContinuousDamage;
+    public AudioClip mageContinusDamage;
+    public AudioClip golemShieldTrapDamage;
+    public AudioClip golemHealthTrapDamage;
+    public AudioClip golemShieldGuardDamage;
+    public AudioClip golemHealthGuardDamage;
+    public AudioClip checkpointSound;
+    public AudioClip healSound;
+    public AudioClip respawnSound;
+    public AudioClip skelDeath1, skelDeath2, skelDeath3, skelDeath4;
+    public AudioClip splash;
 
     void Start()
     {
+        touchingGround = false;
+        checkThePoint = true;
+        soundControl = 0;
+        onTrap = false;
+        calledDeath = false;
+        calledControl = false;
+        audioSource = GetComponent<AudioSource>();
+        colorTimer = 0;
         damage = false;
+        shouldMove = true;
         health = maxHealth;
         shield = maxShield;
         shieldSprite = GameObject.Find("ShieldBar");
         healthSprite = GameObject.Find("SkeletonBar");
+        healthBar = GameObject.Find("health").GetComponent<SimpleHealthBar>();
+        shieldBar = GameObject.Find("shield").GetComponent<SimpleHealthBar>();
         //skeletonSprite = GameObject.Find("skeleton").GetComponent<SpriteRenderer>();
         //archerSprite = GameObject.Find("archer").GetComponent<SpriteRenderer>();
         //golemSprite = GameObject.Find("golem").GetComponent<SpriteRenderer>();
@@ -60,14 +97,41 @@ public class PlayerHealth : MonoBehaviour
         //healthSprite[1] = GameObject.Find("ArcherBar");
         //healthSprite[2] = GameObject.Find("GolemBar");
         trapsLayer = LayerMask.NameToLayer("Traps");
+        groundLayer = LayerMask.NameToLayer("Plataforms");
+        lifeParticleSkel.SetActive(false);
+        lifeParticleMage.SetActive(false);
+        lifeParticleGolem.SetActive(false);
     }
 
     void Update()
     {
+        if (!shouldMove)
+        {
+            IsDead();
+        }
+
+        soundControl = 1 * Time.deltaTime;
+
         if (isAlive)
         {
             shieldRegenTimer = shieldRegenTimer + Time.deltaTime;
-
+            colorTimer += 1 * Time.deltaTime;
+            if (colorTimer > 0.5f)
+            {
+                onTrap = false;
+                if (skeletonSprite != null)
+                {
+                    skeletonSprite.color = new Color(1, 1, 1);
+                }
+                if (archerHeadSprite != null)
+                {
+                    archerHeadSprite.color = new Color(1, 1, 1);
+                }
+                if (golemSprite != null)
+                {
+                    golemSprite.color = new Color(1, 1, 1);
+                }
+            }
             if (characterType.character == 1)
             {
                 skeletonSprite = GameObject.Find("skeleton").GetComponent<SpriteRenderer>();
@@ -79,7 +143,6 @@ public class PlayerHealth : MonoBehaviour
             else if (characterType.character == 2)
             {
                 archerHeadSprite = GameObject.Find("archer head").GetComponent<SpriteRenderer>();
-                archerBodySprite = GameObject.Find("archer body").GetComponent<SpriteRenderer>();
                 //healthSprite[0].SetActive(false);
                 //healthSprite[1].SetActive(true);
                 //healthSprite[2].SetActive(false);
@@ -129,30 +192,161 @@ public class PlayerHealth : MonoBehaviour
     {
         if (collision.gameObject.tag == "Checkpoint") 
         {
-            if (checkpoint != null)
+            if (checkpoint != null && collision.gameObject != checkpoint)
             {
+                checkThePoint = true;
                 checkpoint.GetComponentInChildren<Light>().range = 0;
             }
             checkpoint = collision.gameObject;
-            checkpoint.GetComponentInChildren<Light>().range = 5;
+            checkpoint.GetComponentInChildren<Light>().range = 15;
+            if (checkpointSound != null && checkThePoint)
+            {
+                checkThePoint = false;
+                audioSource.PlayOneShot(checkpointSound, 0.2f);
+            }
+        }
+        if (collision.gameObject.layer == trapsLayer && characterType.character == 3)
+        {
+            if (collision.gameObject.name == "instaLava" || collision.gameObject.name == "River")
+            {
+                if (splash != null)
+                {
+                    audioSource.PlayOneShot(splash, 0.5f);
+                }
+            }
         }
         if (collision.gameObject.layer == trapsLayer && (characterType.character != 3 || shield <= 0))
         {
+            onTrap = true;
             if (!characterType.isMist && characterType.character == 2)
             {
+                if (collision.gameObject.name == "instaLava" || collision.gameObject.name == "River")
+                {
+                    if (splash != null)
+                    {
+                        audioSource.PlayOneShot(splash, 0.5f);
+                    }
+                }
+                health = 0;
                 IsDead();
             }
             else if (characterType.character == 1)
             {
+                if (collision.gameObject.name == "instaLava" || collision.gameObject.name == "River")
+                {
+                    if (splash != null)
+                    {
+                        audioSource.PlayOneShot(splash, 0.5f);
+                    }
+                }
+                health = 0;
                 IsDead();
+            }
+        }
+        if (collision.gameObject.tag == "enemyAttack")
+        {
+            colorTimer = 0;
+            if (characterType.character == 3)
+            {
+                if (shield > 0)
+                {
+                    shield -= collision.gameObject.GetComponentInParent<EnemyMovement>().damage;
+                    damage = true;
+                    golemSprite.color = new Color(1f, 0.5f, 0);
+                    shieldRegenTimer = 0f;
+                    if (golemShieldGuardDamage != null)
+                    {
+                        audioSource.PlayOneShot(golemShieldGuardDamage);
+                    }
+                }
+                else if (shield <= 0)
+                {
+                    health -= collision.gameObject.GetComponentInParent<EnemyMovement>().damage;
+                    golemSprite.color = new Color(1f, 0.15f, 0.15f);
+                    damage = true;
+                    if (golemHealthGuardDamage != null)
+                    {
+                        audioSource.PlayOneShot(golemHealthGuardDamage);
+                    }
+                    if (health <= 0)
+                    {
+                        IsDead();
+                    }
+                }
+            }
+            else if (characterType.character != 3)
+            {
+                if (characterType.character == 1)
+                {
+                    if (!characterType.isSliding)
+                    {
+                        skeletonSprite.color = new Color(1f, 0.15f, 0.15f);
+                        damage = true;
+                        health -= collision.gameObject.GetComponentInParent<EnemyMovement>().damage;
+                        if (skelDamage != null)
+                        {
+                            audioSource.PlayOneShot(skelDamage, 0.5f);
+                        }
+                    }
+                }
+                else if (characterType.character == 2)
+                {
+                    if (!characterType.isMist)
+                    {
+                        archerHeadSprite.color = new Color(1f, 0.15f, 0.15f);
+                        damage = true;
+                        health -= collision.gameObject.GetComponentInParent<EnemyMovement>().damage;
+                        if (mageDamage != null)
+                        {
+                            audioSource.PlayOneShot(mageDamage);
+                        }
+                    }
+                }
             }
         }
     }
 
     void OnTriggerStay2D(Collider2D collision)
     {
+        if (collision.gameObject.tag == "Checkpoint")
+        {
+            if(health < maxHealth/2)
+            {
+                health += 15 * Time.deltaTime;
+                if (characterType.character == 1 && lifeParticleSkel != null && lifeParticleMage != null && lifeParticleGolem != null)
+                {
+                    lifeParticleSkel.SetActive(true);
+                    lifeParticleMage.SetActive(false);
+                    lifeParticleGolem.SetActive(false);
+                }
+                else if (characterType.character == 2 && lifeParticleSkel != null && lifeParticleMage != null && lifeParticleGolem != null)
+                {
+                    lifeParticleSkel.SetActive(false);
+                    lifeParticleMage.SetActive(true);
+                    lifeParticleGolem.SetActive(false);
+                }
+                else if (characterType.character == 3 && lifeParticleSkel != null && lifeParticleMage != null && lifeParticleGolem != null)
+                {
+                    lifeParticleSkel.SetActive(false);
+                    lifeParticleMage.SetActive(false);
+                    lifeParticleGolem.SetActive(true);
+                }
+                if (soundControl > soundControlMax && healSound != null)
+                {
+                    soundControl = 0;
+                    audioSource.PlayOneShot(healSound);
+                }
+            }
+            else if(lifeParticleSkel != null && lifeParticleMage != null && lifeParticleGolem != null)
+            {
+                lifeParticleSkel.SetActive(false);
+                lifeParticleMage.SetActive(false);
+                lifeParticleGolem.SetActive(false);
+            }
+        }
         if (collision.gameObject.tag == "Enemy")
         {
+            colorTimer = 0;
             Debug.Log("Encoxando inimigo");
             if (characterType.character == 3)
             {
@@ -161,15 +355,25 @@ public class PlayerHealth : MonoBehaviour
                     //golemSprite.color = Color.Lerp(new Color(1, 0.5f, 0), new Color(1, 1, 1), Mathf.PingPong(Time.time, 0.1f));
                     shield -= 10 * Time.deltaTime;
                     damage = true;
-                    golemSprite.color = new Color(1, 0.5f, 0);
+                    golemSprite.color = new Color(1f, 0.5f, 0);
                     shieldRegenTimer = 0f;
+                    if (soundControl > 1 && golemShieldTrapDamage != null)
+                    {
+                        soundControl = 0;
+                        audioSource.PlayOneShot(golemShieldTrapDamage);
+                    }
                 }
                 else if (shield <= 0)
                 {
                     //health[(characterType.character) - 1] -= 10 * Time.deltaTime;
                     health -= 10 * Time.deltaTime;
-                    golemSprite.color = new Color(1, 0, 0);
+                    golemSprite.color = new Color(1f, 0.15f, 0.15f);
                     damage = true;
+                    if (soundControl > 1 && golemHealthTrapDamage != null)
+                    {
+                        soundControl = 0;
+                        audioSource.PlayOneShot(golemHealthTrapDamage);
+                    }
                     //if (health[(characterType.character) - 1] <= 0)
                     if (health <= 0)
                     {
@@ -183,42 +387,88 @@ public class PlayerHealth : MonoBehaviour
                 {
                     if (!characterType.isSliding)
                     {
-                        skeletonSprite.color = new Color(1, 0, 0);
+                        skeletonSprite.color = new Color(1f, 0.15f, 0.15f);
                         //health[(characterType.character) - 1] -= 10 * Time.deltaTime;
                         damage = true;
                         health -= 10 * Time.deltaTime;
+                        if (soundControl > 1 && skelContinuousDamage != null)
+                        {
+                            soundControl = 0;
+                            audioSource.PlayOneShot(skelContinuousDamage);
+                        }
                     }
                 }
                 else if (characterType.character == 2)
                 {
                     if (!characterType.isMist)
                     {
-                        archerHeadSprite.color = new Color(1, 0, 0);
-                        archerBodySprite.color = new Color(1, 0, 0);
+                        archerHeadSprite.color = new Color(1f, 0.15f, 0.15f);
                         //health[(characterType.character) - 1] -= 10 * Time.deltaTime;
                         damage = true;
                         health -= 10 * Time.deltaTime;
+                    }
+                    if (soundControl > 1 && mageContinusDamage != null)
+                    {
+                        soundControl = 0;
+                        audioSource.PlayOneShot(mageContinusDamage);
                     }
                 }
             }
         }
         if (collision.gameObject.layer == trapsLayer && characterType.character != 3)
         {
+            colorTimer = 0;
             if (!characterType.isMist)
             {
+                health = 0;
                 IsDead();
             }
         }
         else if (collision.gameObject.layer == trapsLayer && characterType.character == 3)
         {
-            //golemSprite.color = Color.Lerp(new Color(1, 0.5f, 0), new Color(1, 1, 1), Mathf.PingPong(Time.time, 0.1f));
-            shield -= 10 * Time.deltaTime;
-            damage = true;
-            golemSprite.color = new Color(1, 0.5f, 0);
-            shieldRegenTimer = 0f;
-            if(shield <=0)
+            onTrap = true;
+            colorTimer = 0;
+            ////golemSprite.color = Color.Lerp(new Color(1, 0.5f, 0), new Color(1, 1, 1), Mathf.PingPong(Time.time, 0.1f));
+            //shield -= 10 * Time.deltaTime;
+            //damage = true;
+            //golemSprite.color = new Color(1, 0.5f, 0);
+            //shieldRegenTimer = 0f;
+            //if(shield <=0)
+            //{
+            //    IsDead();
+            //}
+            if (characterType.character == 3)
             {
-                IsDead();
+                if (shield > 0)
+                {
+                    //golemSprite.color = Color.Lerp(new Color(1, 0.5f, 0), new Color(1, 1, 1), Mathf.PingPong(Time.time, 0.1f));
+                    shield -= 10 * Time.deltaTime;
+                    damage = true;
+                    golemSprite.color = new Color(1f, 0.5f, 0);
+                    shieldRegenTimer = 0f;
+                    if (soundControl > 1 && golemShieldTrapDamage != null)
+                    {
+                        soundControl = 0;
+                        audioSource.PlayOneShot(golemShieldTrapDamage);
+                    }
+                }
+                else if (shield <= 0)
+                {
+                    //health[(characterType.character) - 1] -= 10 * Time.deltaTime;
+                    health -= 10 * Time.deltaTime;
+                    golemSprite.color = new Color(1f, 0.15f, 0.15f);
+                    damage = true;
+                    if (soundControl > 1 && golemHealthTrapDamage != null)
+                    {
+                        soundControl = 0;
+                        audioSource.PlayOneShot(golemHealthTrapDamage);
+                    }
+                    //if (health[(characterType.character) - 1] <= 0)
+                    if (health <= 0)
+                    {
+                        IsDead();
+                    }
+                }
             }
         }
     }
@@ -233,7 +483,21 @@ public class PlayerHealth : MonoBehaviour
             }
             if (archerHeadSprite != null)
             {
-                archerBodySprite.color = new Color(1, 1, 1);
+                archerHeadSprite.color = new Color(1, 1, 1);
+            }
+            if (golemSprite != null)
+            {
+                golemSprite.color = new Color(1, 1, 1);
+            }
+        }
+        if (collision.gameObject.tag == "enemyAttack")
+        {
+            if (skeletonSprite != null)
+            {
+                skeletonSprite.color = new Color(1, 1, 1);
+            }
+            if (archerHeadSprite != null)
+            {
                 archerHeadSprite.color = new Color(1, 1, 1);
             }
             if (golemSprite != null)
@@ -243,12 +507,32 @@ public class PlayerHealth : MonoBehaviour
         }
         if (collision.gameObject.layer == trapsLayer && characterType.character == 3)
         {
+            onTrap = false;
             golemSprite.color = new Color(1, 1, 1);
+        }
+    }
+
+    void OnCollisionStay2D(Collision2D collision)
+    {
+        if (collision.gameObject.layer == groundLayer)
+        {
+            touchingGround = true;
+        }
+    }
+
+    void OnCollisionExit2D(Collision2D collision)
+    {
+        if (collision.gameObject.layer == groundLayer)
+        {
+            touchingGround = false;
         }
     }
 
     public void resetStats()
     {
+        shouldMove = true;
+        calledControl = false;
+        calledDeath = false;
         health = maxHealth;
         characterType.mistTimer = 0;
         characterType.isMist = false;
@@ -256,23 +540,68 @@ public class PlayerHealth : MonoBehaviour
         //health[1] = maxHealth[1];
         //health[2] = maxHealth[2];
         shield = maxShield;
+        characterType.animate.ResetAnimation();
+        if (respawnSound != null)
+        {
+            audioSource.PlayOneShot(respawnSound, 0.5f);
+        }
     }
 
-    void IsDead()
+    public void IsDead()
     {
-        if (isAlive)
+        shouldMove = false;
+        if (characterType.character == 2 && calledDeath == false)
         {
-            characterType.animate.ResetAnimation();
+            //particlePos = new Vector3(transform.position.x, transform.position.y + particleHeight, transform.position.z);
+            calledDeath = true;
+            Instantiate(deathEffect, particlePos.transform.position, transform.rotation);
+        }
 
-            isAlive = false;
+        if(characterType.character==1 && calledDeath == false)
+        {
+            int rand = Random.Range(0, 4);
+            calledDeath = true;
 
-            particlePos = new Vector3(transform.position.x, transform.position.y + particleHeight, transform.position.z);
+            if (rand == 0)
+            {
+                if (skelDeath1 != null)
+                {
+                    audioSource.PlayOneShot(skelDeath1, 0.4f);
+                }
+            }
+            else if (rand == 1)
+            {
+                if (skelDeath2 != null)
+                {
+                    audioSource.PlayOneShot(skelDeath2, 0.4f);
+                }
+            }
+            else if (rand == 2)
+            {
+                if (skelDeath3 != null)
+                {
+                    audioSource.PlayOneShot(skelDeath3, 0.4f);
+                }
+            }
+            else if (rand == 3)
+            {
+                if (skelDeath4 != null)
+                {
+                    audioSource.PlayOneShot(skelDeath4, 0.4f);
+                }
+            }
+        }
 
-            Instantiate(deathEffect, particlePos, transform.rotation);
+        if (!isAlive && calledControl == false)
+        {
+            calledControl = true;
+            // characterType.animate.ResetAnimation();         
 
-            characters[0].SetActive(false);
-            characters[1].SetActive(false);
-            characters[2].SetActive(false);
+            //isAlive = false;          
+
+            //characters[0].SetActive(false);
+            // characters[1].SetActive(false);
+            //characters[2].SetActive(false);
 
             GameControl.PlayerDied();
         }
