@@ -5,7 +5,7 @@ using UnityEngine;
 public class OSTcontroller : MonoBehaviour
 {
     [Header("Audio")]
-    AudioSource audioSource;
+    public AudioSource audioSource;
     public AudioClip[] OST;
     public float[] timer, maxTimer;
     public bool[] played;

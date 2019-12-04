@@ -843,6 +843,7 @@ public class PlayerMovement : MonoBehaviour
             }
             didMagic = true;
         }
+
         if (didMagic == true && magicTimer < magicMaxTimer)
         {
             magicTimer += 1 * Time.deltaTime;
@@ -1231,6 +1232,61 @@ public class PlayerMovement : MonoBehaviour
 
     void OnTriggerStay2D(Collider2D interact)
     {
+        if (interact.gameObject.tag == "OSTCHANGER")
+        {
+            OST_BackgroundChanger backOSTChanger = interact.GetComponent<OST_BackgroundChanger>();
+
+            if (backOSTChanger.isCave)
+            {
+                backOSTChanger.caveOST.GetComponent<OSTcontroller>().audioSource.volume = 0.5f;
+                //Color color = backOSTChanger.backgroundCave.GetComponent<SpriteRenderer>().material.color;
+                //color.a += 1 * Time.deltaTime;
+                //if(color.a < 1)
+                //{
+                //    backOSTChanger.backgroundCave.GetComponent<SpriteRenderer>().material.color = color;
+                //}
+
+                //Color color2 = backOSTChanger.backgroundCave.GetComponent<SpriteRenderer>().material.color;
+                //color2.a -= 1 * Time.deltaTime;
+                //if (color2.a > 0)
+                //{
+                //    backOSTChanger.backgroundForest.GetComponent<SpriteRenderer>().material.color = color2;
+                //}
+
+                backOSTChanger.forestOST.GetComponent<OSTcontroller>().audioSource.volume = 0f;
+                backOSTChanger.castleOST.GetComponent<OSTcontroller>().audioSource.volume = 0f;
+            }
+            if (backOSTChanger.isForest)
+            {
+                backOSTChanger.caveOST.GetComponent<OSTcontroller>().audioSource.volume = 0f;
+
+                //Color color = backOSTChanger.backgroundForest.GetComponent<SpriteRenderer>().material.color;
+                //color.a += 1 * Time.deltaTime;
+                //if (color.a < 1)
+                //{
+                //    backOSTChanger.backgroundForest.GetComponent<SpriteRenderer>().material.color = color;
+                //}
+
+                //Color color2 = backOSTChanger.backgroundCave.GetComponent<SpriteRenderer>().material.color;
+                //color2.a -= 1 * Time.deltaTime;
+                //if (color2.a > 0)
+                //{
+                //    backOSTChanger.backgroundCave.GetComponent<SpriteRenderer>().material.color = color2;
+                //}
+
+                backOSTChanger.forestOST.GetComponent<OSTcontroller>().audioSource.volume = 0.5f;
+
+                backOSTChanger.castleOST.GetComponent<OSTcontroller>().audioSource.volume = 0f;
+            }
+            if (backOSTChanger.isCastle)
+            {
+                backOSTChanger.caveOST.GetComponent<OSTcontroller>().audioSource.volume = 0f;
+                backOSTChanger.forestOST.GetComponent<OSTcontroller>().audioSource.volume = 0f;
+                backOSTChanger.castleOST.GetComponent<OSTcontroller>().audioSource.volume = 0.5f;
+
+            }
+        }
+
         if (interact.gameObject.tag == "Itens" || interact.gameObject.tag == "NPC")
         {
             if (input.interactPressed)

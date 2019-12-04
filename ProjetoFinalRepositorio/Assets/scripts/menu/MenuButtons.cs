@@ -28,6 +28,11 @@ public class MenuButtons : MonoBehaviour
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
     }
 
+    public void goMenu()
+    {
+        SceneManager.LoadScene(0);
+    }
+
     public void LoadGame()
     {
         if (buttonSound != null)

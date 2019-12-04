@@ -13,7 +13,13 @@ public class PlayerHealth : MonoBehaviour
     public SimpleHealthBar shieldBar;
     //public SimpleHealthBar[] healthBar;
     public SimpleHealthBar healthBar;
+    public SimpleHealthBar staminaBar;
+    public SimpleHealthBar invBar;
+    public SimpleHealthBar magicBar;
     public GameObject shieldSprite;
+    public GameObject staminaSprite;
+    public GameObject invSprite;
+    public GameObject magicSprite;
     //public GameObject[] healthSprite;
     public GameObject healthSprite;
     public GameObject lifeParticleSkel, lifeParticleMage, lifeParticleGolem;
@@ -22,9 +28,17 @@ public class PlayerHealth : MonoBehaviour
     //public float[] health;
     public float health;
     public float shield;
+    public float stamina;
+    public float invMana;
+    public float magicMana;
     //public float[] maxHealth;
     public float maxHealth;
     public float maxShield;
+    public float maxStamina;
+    public float maxInvMana;
+    public float maxMagicMana;
+
+    public float mathStamina, mathInv, mathMagic;
 
     [Header("death")]
     public GameObject[] characters;
@@ -74,6 +88,9 @@ public class PlayerHealth : MonoBehaviour
 
     void Start()
     {
+        mathStamina = 100;
+        mathInv = 100;
+        mathMagic = 100;
         touchingGround = false;
         checkThePoint = true;
         soundControl = 0;
@@ -86,10 +103,19 @@ public class PlayerHealth : MonoBehaviour
         shouldMove = true;
         health = maxHealth;
         shield = maxShield;
+        stamina = maxStamina;
+        invMana = maxInvMana;
+        magicMana = maxMagicMana;
         shieldSprite = GameObject.Find("ShieldBar");
         healthSprite = GameObject.Find("SkeletonBar");
+        staminaSprite = GameObject.Find("staminaBarSprite");
+        invSprite = GameObject.Find("invBarSprite");
+        magicSprite = GameObject.Find("magicBarSprite");
         healthBar = GameObject.Find("health").GetComponent<SimpleHealthBar>();
         shieldBar = GameObject.Find("shield").GetComponent<SimpleHealthBar>();
+        staminaBar = GameObject.Find("stamina").GetComponent<SimpleHealthBar>();
+        invBar = GameObject.Find("invisibility").GetComponent<SimpleHealthBar>();
+        magicBar = GameObject.Find("magic").GetComponent<SimpleHealthBar>();
         //skeletonSprite = GameObject.Find("skeleton").GetComponent<SpriteRenderer>();
         //archerSprite = GameObject.Find("archer").GetComponent<SpriteRenderer>();
         //golemSprite = GameObject.Find("golem").GetComponent<SpriteRenderer>();
@@ -110,7 +136,60 @@ public class PlayerHealth : MonoBehaviour
             IsDead();
         }
 
-        soundControl = 1 * Time.deltaTime;
+        soundControl += 1 * Time.deltaTime;
+
+        if (characterType.isSliding)
+        {
+            mathStamina -= 200 * Time.deltaTime;
+        }
+
+        if (characterType.slideTime < characterType.slideTimeMax && characterType.slideTime > 0 && !characterType.isSliding)
+        {
+            mathStamina += 40f * Time.deltaTime;
+        }
+
+        if (characterType.slideTime <= 0)
+        {
+            mathStamina = 0;
+        }
+
+        //cooldown time
+        if (characterType.slideCooldown == 3 && !characterType.isSliding)
+        {
+            mathStamina = 100;
+        }
+
+        if (characterType.isMist == true)
+        {
+            mathInv -= 25 * Time.deltaTime;
+            //mistTimer += 1 * Time.deltaTime;
+        }
+
+        if (characterType.mistTimer == 0 && !characterType.isMist)
+        {
+            mathInv = 100;
+        }
+
+
+        if (characterType.didMagic == true && characterType.magicTimer < characterType.magicMaxTimer)
+        {
+            mathMagic -= 100 * Time.deltaTime;
+            //magicTimer += 1 * Time.deltaTime;
+        }
+
+        if (characterType.magicTimer == 0 && !characterType.didMagic)
+        {
+            mathMagic = 100;
+        }
+
+
+        //mathStamina = Mathf.Clamp(characterType.slideTime * 200, 0, 100);
+        //mathInv = Mathf.Clamp(characterType.mistTimer * 200, 0, 100);
+        //mathMagic = Mathf.Clamp(characterType.magicTimer * 200, 0, 100);
+
+        stamina = mathStamina;
+        invMana = mathInv;
+        magicMana = mathMagic;
 
         if (isAlive)
         {
@@ -139,6 +218,9 @@ public class PlayerHealth : MonoBehaviour
                 //healthSprite[1].SetActive(false);
                 //healthSprite[2].SetActive(false);
                 shieldSprite.SetActive(false);
+                staminaSprite.SetActive(true);
+                magicSprite.SetActive(false);
+                invSprite.SetActive(false);
             }
             else if (characterType.character == 2)
             {
@@ -147,6 +229,9 @@ public class PlayerHealth : MonoBehaviour
                 //healthSprite[1].SetActive(true);
                 //healthSprite[2].SetActive(false);
                 shieldSprite.SetActive(false);
+                staminaSprite.SetActive(false);
+                magicSprite.SetActive(true);
+                invSprite.SetActive(true);
             }
             else if (characterType.character == 3)
             {
@@ -155,12 +240,15 @@ public class PlayerHealth : MonoBehaviour
                 //healthSprite[0].SetActive(false);
                 //healthSprite[1].SetActive(false);
                 //healthSprite[2].SetActive(true);
+                staminaSprite.SetActive(false);
+                magicSprite.SetActive(false);
+                invSprite.SetActive(false);
             }
             // (health[(characterType.character) - 1] <= 0)
             if (health <= 0)
             {
                 IsDead();
-            }            
+            }
 
             if (shieldRegenTimer >= waitRegenShield && shield < maxShield)
             {
@@ -171,14 +259,17 @@ public class PlayerHealth : MonoBehaviour
 
             damage = false;
 
-            if(!damage)
+            if (!damage)
             {
-               //skeletonSprite.color = new Color(1, 1, 1);
-               //archerSprite.color = new Color(1, 1, 1);
-               //golemSprite.color = new Color(1, 1, 1);
+                //skeletonSprite.color = new Color(1, 1, 1);
+                //archerSprite.color = new Color(1, 1, 1);
+                //golemSprite.color = new Color(1, 1, 1);
             }
 
             healthBar.UpdateBar(health, maxHealth);
+            staminaBar.UpdateBar(stamina, maxHealth);
+            invBar.UpdateBar(invMana, maxHealth);
+            magicBar.UpdateBar(magicMana, maxHealth);
 
             //healthBar[0].UpdateBar(health[0], maxHealth[0]);
             //healthBar[1].UpdateBar(health[1], maxHealth[1]);
