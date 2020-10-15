@@ -62,14 +62,11 @@ public class PlayerInput : MonoBehaviour
 
     void FixedUpdate()
     {
-        //In FixedUpdate() we set a flag that lets inputs to be cleared out during the 
-        //next Update(). This ensures that all code gets to use the controller inputs
         readyToClear = true;
     }
 
     void ClearInput()
     {
-        //If we're not ready to clear input, exit
         if (!readyToClear)
             return;
 
